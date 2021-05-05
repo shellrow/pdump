@@ -12,7 +12,7 @@ license = "MIT"
 
 [dependencies]
 pnet = "0.26"
-default-net = "0.1.0"
+default-net = "0.1.1"
 clap = "2.33"
 crossterm = "0.19"
 sudo = "0.6"

@@ -5,6 +5,8 @@ mod util;
 use util::validator;
 use util::option::PacketCaptureOptions;
 use util::pcap;
+use util::interface;
+use util::sys;
 
 use std::env;
 use std::time::Duration;
@@ -32,9 +34,9 @@ fn main() {
         std::process::exit(0);
     }
     let app = get_app_settings();
-    let _matches = app.get_matches();
+    let matches = app.get_matches();
     let default_interface = default_net::get_default_interface().expect("Failed to get default interface information");
-    let capture_options: PacketCaptureOptions = PacketCaptureOptions {
+    let mut capture_options: PacketCaptureOptions = PacketCaptureOptions {
         interface_index: default_interface.index,
         interface_name: default_interface.name,
         src_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
@@ -45,6 +47,58 @@ fn main() {
         timeout: Duration::from_secs(60),
         promiscuous: false,
     };
+    if matches.is_present("list") {
+        println!("List of network interfaces");
+        interface::list_interfaces(default_interface.index);
+        std::process::exit(0);
+    }
+    if let Some(name) = matches.value_of("interface") {
+        capture_options.interface_name = name.to_string();
+        if let Some(idx) = interface::get_interface_index_by_name(name.to_string()) {
+            capture_options.interface_index = idx;
+        }
+    }
+    if matches.is_present("promiscuous") {
+        capture_options.promiscuous = true;
+    }
+    if let Some(host) = matches.value_of("host") {
+        match host.parse::<IpAddr>() {
+            Ok(ipaddr) => {
+                capture_options.src_ip = ipaddr;
+                capture_options.src_ip = ipaddr;
+            },
+            Err(e) => {
+                println!("{}", e);
+                std::process::exit(0);
+            },
+        }
+    }else{
+        if let Some(src) = matches.value_of("src") {
+            if sys::is_ipaddr(src) {
+                capture_options.src_ip = src.parse::<IpAddr>().expect("");
+            }
+        }
+        if let Some(dst) = matches.value_of("dst") {
+            if sys::is_ipaddr(dst) {
+                capture_options.dst_ip = dst.parse::<IpAddr>().expect("");
+            }
+        }
+    }
+    if let Some(port) = matches.value_of("port") {
+        capture_options.src_port = port.parse::<u16>().expect("");
+        capture_options.dst_port = port.parse::<u16>().expect("");
+    }else{
+        if let Some(src) = matches.value_of("src") {
+            if sys::is_port(src) {
+                capture_options.src_port = src.parse::<u16>().expect("");
+            }
+        }
+        if let Some(dst) = matches.value_of("dst") {
+            if sys::is_port(dst) {
+                capture_options.dst_port = dst.parse::<u16>().expect("");
+            }
+        }
+    }
     pcap::start_capture(&capture_options);
 }
 
@@ -57,6 +111,16 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
             .help("List network interfaces")
             .short("l")
             .long("list")
+        )
+        .arg(Arg::with_name("default")
+            .help("Start with default settings")
+            .short("a")
+            .long("default")
+        )
+        .arg(Arg::with_name("promiscuous")
+            .help("Enable promiscuous mode")
+            .short("r")
+            .long("promiscuous")
         )
         .arg(Arg::with_name("interface")
             .help("Specify network interface by name")
@@ -122,6 +186,8 @@ fn show_app_desc() {
     println!("{} {} ({}) {}", crate_name!(), crate_version!(), CRATE_UPDATE_DATE, get_os_type());
     println!("{}", crate_description!());
     println!("{}", CRATE_AUTHOR_GITHUB);
+    println!("If you want to start with the default settings:");
+    println!("'{} --default'", crate_name!());
     println!();
     println!("'{} --help' for more information.", crate_name!());
     println!();

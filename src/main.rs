@@ -42,7 +42,7 @@ fn main() {
         src_port: 0,
         dst_port: 0,
         protocols: vec![],
-        timeout: Duration::from_secs(30),
+        timeout: Duration::from_secs(60),
     };
     pcap::start_capture(&capture_options);
 }

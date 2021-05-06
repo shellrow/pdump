@@ -43,6 +43,7 @@ fn main() {
         dst_port: 0,
         protocols: vec![],
         timeout: Duration::from_secs(60),
+        promiscuous: false,
     };
     pcap::start_capture(&capture_options);
 }

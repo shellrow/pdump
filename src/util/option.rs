@@ -10,6 +10,5 @@ pub struct PacketCaptureOptions {
     pub dst_port: u16,
     pub protocols: Vec<String>,
     pub timeout: Duration,
+    pub promiscuous: bool,
 }
-
-

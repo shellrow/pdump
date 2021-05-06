@@ -4,6 +4,29 @@ use std::time::Instant;
 use pnet::packet::Packet;
 use chrono::Local;
 
+#[cfg(not(windows))]
+pub fn start_capture(capture_options: &PacketCaptureOptions) {
+    let interfaces = pnet::datalink::interfaces();
+    let interface = interfaces.into_iter().filter(|interface: &pnet::datalink::NetworkInterface| interface.index == capture_options.interface_index).next().expect("Failed to get Interface");
+    let config = pnet::datalink::Config {
+        write_buffer_size: 4096,
+        read_buffer_size: 4096,
+        read_timeout: None,
+        write_timeout: None,
+        channel_type: pnet::datalink::ChannelType::Layer2,
+        bpf_fd_attempts: 1000,
+        linux_fanout: None,
+        promiscuous: capture_options.promiscuous,
+    };
+    let (mut _tx, mut rx) = match pnet::datalink::channel(&interface, config) {
+        Ok(pnet::datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
+        Ok(_) => panic!("Unknown channel type"),
+        Err(e) => panic!("Error happened {}", e),
+    };
+    receive_packets(&mut rx, capture_options);
+}
+
+#[cfg(target_os = "windows")]
 pub fn start_capture(capture_options: &PacketCaptureOptions) {
     let interfaces = pnet::datalink::interfaces();
     let interface = interfaces.into_iter().filter(|interface: &pnet::datalink::NetworkInterface| interface.index == capture_options.interface_index).next().expect("Failed to get Interface");

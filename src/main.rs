@@ -14,7 +14,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use clap::{App, AppSettings, Arg};
 use default_net;
 
-const CRATE_UPDATE_DATE: &str = "2021-05-05";
+const CRATE_UPDATE_DATE: &str = "2021-05-08";
 const CRATE_AUTHOR_GITHUB: &str = "shellrow <https://github.com/shellrow>";
 //const CRATE_REPOSITORY: &str = "https://github.com/shellrow/nscan/pdump";
 
@@ -44,13 +44,17 @@ fn main() {
         src_port: 0,
         dst_port: 0,
         protocols: vec![],
-        timeout: Duration::from_secs(60),
+        duration: Duration::from_secs(60),
         promiscuous: false,
+        default: false,
     };
     if matches.is_present("list") {
         println!("List of network interfaces");
         interface::list_interfaces(default_interface.index);
         std::process::exit(0);
+    }
+    if matches.is_present("default") {
+        capture_options.default = true;
     }
     if let Some(name) = matches.value_of("interface") {
         capture_options.interface_name = name.to_string();
@@ -62,44 +66,46 @@ fn main() {
         capture_options.promiscuous = true;
     }
     if let Some(host) = matches.value_of("host") {
-        match host.parse::<IpAddr>() {
-            Ok(ipaddr) => {
-                capture_options.src_ip = ipaddr;
-                capture_options.src_ip = ipaddr;
-            },
-            Err(e) => {
-                println!("{}", e);
-                std::process::exit(0);
-            },
-        }
+        capture_options.src_ip = host.parse::<IpAddr>().expect("Invalid IP address.");
+        capture_options.dst_ip = host.parse::<IpAddr>().expect("Invalid IP address.");
     }else{
         if let Some(src) = matches.value_of("src") {
             if sys::is_ipaddr(src) {
-                capture_options.src_ip = src.parse::<IpAddr>().expect("");
+                capture_options.src_ip = src.parse::<IpAddr>().expect("Invalid IP address");
             }
         }
         if let Some(dst) = matches.value_of("dst") {
             if sys::is_ipaddr(dst) {
-                capture_options.dst_ip = dst.parse::<IpAddr>().expect("");
+                capture_options.dst_ip = dst.parse::<IpAddr>().expect("Invalid IP address");
             }
         }
     }
     if let Some(port) = matches.value_of("port") {
-        capture_options.src_port = port.parse::<u16>().expect("");
-        capture_options.dst_port = port.parse::<u16>().expect("");
+        capture_options.src_port = port.parse::<u16>().expect("Invalid port");
+        capture_options.dst_port = port.parse::<u16>().expect("Invalid port");
     }else{
         if let Some(src) = matches.value_of("src") {
             if sys::is_port(src) {
-                capture_options.src_port = src.parse::<u16>().expect("");
+                capture_options.src_port = src.parse::<u16>().expect("Invalid port");
             }
         }
         if let Some(dst) = matches.value_of("dst") {
             if sys::is_port(dst) {
-                capture_options.dst_port = dst.parse::<u16>().expect("");
+                capture_options.dst_port = dst.parse::<u16>().expect("Invalid port");
             }
         }
     }
-    pcap::start_capture(&capture_options);
+    if let Some(protocol) = matches.value_of("protocol") {
+        let protocol_vec: Vec<&str> = protocol.trim().split(",").collect();
+        for protocol in protocol_vec {
+            capture_options.protocols.push(protocol.to_string());
+        }
+    }
+    if let Some(duration) = matches.value_of("duration") {
+        capture_options.duration = Duration::from_secs(duration.parse::<u64>().expect("Invalid duration value"))
+    }
+    println!("{} {} capturing on {}", crate_name!(), crate_version!(), capture_options.interface_name);
+    pcap::start_capture(capture_options);
 }
 
 fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
@@ -132,7 +138,7 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("host")
             .help("Source or destination host")
-            .short("n")
+            .short("H")
             .long("host")
             .takes_value(true)
             .value_name("ip_addr")
@@ -140,7 +146,7 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("port")
             .help("Source or destination port")
-            .short("p")
+            .short("P")
             .long("port")
             .takes_value(true)
             .value_name("port")
@@ -148,35 +154,43 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("src")
             .help("Source IP or Port")
-            .short("s")
+            .short("S")
             .long("src")
             .takes_value(true)
             .value_name("src_ip_or_port")
-            //.validator(validator::validate_src)
+            .validator(validator::validate_host_port)
         )
         .arg(Arg::with_name("dst")
             .help("Destination IP or Port")
-            .short("d")
+            .short("D")
             .long("dst")
             .takes_value(true)
             .value_name("dst_ip_or_port")
-            //.validator(validator::validate_dst)
+            .validator(validator::validate_host_port)
         )
         .arg(Arg::with_name("protocol")
             .help("Protocol Filter. Can be specified as comma separated")
-            .short("t")
+            .short("p")
             .long("protocol")
             .takes_value(true)
             .value_name("protocols")
             .validator(validator::validate_protocol)
         )
-        .arg(Arg::with_name("save")
+        .arg(Arg::with_name("duration")
+            .help("Set time limit (duration)")
+            .short("d")
+            .long("duration")
+            .takes_value(true)
+            .value_name("duration")
+            .validator(validator::validate_duration_opt)
+        )
+/*         .arg(Arg::with_name("save")
             .help("Save result to file")
-            .short("w")
+            .short("s")
             .long("save")
             .takes_value(true)
             .value_name("file_path")
-        )
+        ) */
         .setting(AppSettings::DeriveDisplayOrder)
         ;
         app
@@ -186,9 +200,9 @@ fn show_app_desc() {
     println!("{} {} ({}) {}", crate_name!(), crate_version!(), CRATE_UPDATE_DATE, get_os_type());
     println!("{}", crate_description!());
     println!("{}", CRATE_AUTHOR_GITHUB);
-    println!("If you want to start with the default settings:");
+    println!("If you want to start with default settings:");
     println!("'{} --default'", crate_name!());
-    println!();
+    println!("or");
     println!("'{} --help' for more information.", crate_name!());
     println!();
 }

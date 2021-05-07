@@ -78,16 +78,16 @@ pub fn get_tcp_flag_string(tcp_flags: u16) -> String {
         TcpFlags::URG => {return String::from("URG");},
         _ => {
             if tcp_flags == TcpFlags::SYN | TcpFlags::ACK {
-                return String::from("SYN + ACK");
+                return String::from("SYN+ACK");
             }
             else if tcp_flags == TcpFlags::FIN | TcpFlags::ACK {
-                return String::from("FIN + ACK");
+                return String::from("FIN+ACK");
             }
             else if tcp_flags == TcpFlags::RST | TcpFlags::ACK {
-                return String::from("RST + ACK");
+                return String::from("RST+ACK");
             }
             else if tcp_flags == TcpFlags::PSH | TcpFlags::ACK {
-                return String::from("PSH + ACK");
+                return String::from("PSH+ACK");
             }
             else{
                 return tcp_flags.to_string();

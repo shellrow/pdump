@@ -13,9 +13,9 @@ license = "MIT"
 [dependencies]
 default-net = "0.2.0"
 clap = "2.33"
-crossterm = "0.19"
-sudo = "0.6"
 chrono = "0.4"
+#sudo = "0.6"
+#crossterm = "0.19"
 
 [target.'cfg(not(windows))'.dependencies]
 pnet = "0.27"

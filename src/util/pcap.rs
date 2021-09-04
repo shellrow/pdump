@@ -10,7 +10,6 @@ struct CaptureInfo {
     datatime: String,
 }
 
-#[cfg(not(windows))]
 pub fn start_capture(capture_options: PacketCaptureOptions) {
     let interfaces = pnet::datalink::interfaces();
     let interface = interfaces.into_iter().filter(|interface: &pnet::datalink::NetworkInterface| interface.index == capture_options.interface_index).next().expect("Failed to get Interface");
@@ -25,18 +24,6 @@ pub fn start_capture(capture_options: PacketCaptureOptions) {
         promiscuous: capture_options.promiscuous,
     };
     let (mut _tx, mut rx) = match pnet::datalink::channel(&interface, config) {
-        Ok(pnet::datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
-        Ok(_) => panic!("Unknown channel type"),
-        Err(e) => panic!("Error happened {}", e),
-    };
-    receive_packets(&mut rx, capture_options);
-}
-
-#[cfg(target_os = "windows")]
-pub fn start_capture(capture_options: PacketCaptureOptions) {
-    let interfaces = pnet::datalink::interfaces();
-    let interface = interfaces.into_iter().filter(|interface: &pnet::datalink::NetworkInterface| interface.index == capture_options.interface_index).next().expect("Failed to get Interface");
-    let (mut _tx, mut rx) = match pnet::datalink::channel(&interface, Default::default()) {
         Ok(pnet::datalink::Channel::Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unknown channel type"),
         Err(e) => panic!("Error happened {}", e),

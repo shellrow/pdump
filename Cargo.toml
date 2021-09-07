@@ -15,5 +15,6 @@ default-net = "0.3.0"
 clap = "2.33"
 chrono = "0.4"
 pnet = "0.28"
-#sudo = "0.6"
-#crossterm = "0.19"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.9", features = [ "std" ] }

@@ -11,10 +11,10 @@ use util::sys;
 use std::env;
 use std::time::Duration;
 use std::net::{IpAddr, Ipv4Addr};
-use clap::{App, AppSettings, Arg};
+use clap::{App, AppSettings, Arg, Command};
 use default_net;
 
-const CRATE_UPDATE_DATE: &str = "2021-05-08";
+const CRATE_UPDATE_DATE: &str = "2023-05-31";
 const CRATE_AUTHOR_GITHUB: &str = "shellrow <https://github.com/shellrow>";
 //const CRATE_REPOSITORY: &str = "https://github.com/shellrow/nscan/pdump";
 
@@ -108,29 +108,29 @@ fn main() {
     pcap::start_capture(capture_options);
 }
 
-fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
+fn get_app_settings<'a>() -> Command<'a> {
     let app = App::new(crate_name!())
         .version(crate_version!())
         .author(CRATE_AUTHOR_GITHUB)
         .about(crate_description!())
         .arg(Arg::with_name("list")
             .help("List network interfaces")
-            .short("l")
+            .short('l')
             .long("list")
         )
         .arg(Arg::with_name("default")
             .help("Start with default settings")
-            .short("a")
+            .short('a')
             .long("default")
         )
         .arg(Arg::with_name("promiscuous")
             .help("Enable promiscuous mode")
-            .short("r")
+            .short('r')
             .long("promiscuous")
         )
         .arg(Arg::with_name("interface")
             .help("Specify network interface by name")
-            .short("i")
+            .short('i')
             .long("interface")
             .takes_value(true)
             .value_name("name")
@@ -138,7 +138,7 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("host")
             .help("Source or destination host")
-            .short("H")
+            .short('H')
             .long("host")
             .takes_value(true)
             .value_name("ip_addr")
@@ -146,7 +146,7 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("port")
             .help("Source or destination port")
-            .short("P")
+            .short('P')
             .long("port")
             .takes_value(true)
             .value_name("port")
@@ -154,7 +154,7 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("src")
             .help("Source IP or Port")
-            .short("S")
+            .short('S')
             .long("src")
             .takes_value(true)
             .value_name("src_ip_or_port")
@@ -162,15 +162,15 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("dst")
             .help("Destination IP or Port")
-            .short("D")
+            .short('D')
             .long("dst")
             .takes_value(true)
             .value_name("dst_ip_or_port")
-            .validator(validator::validate_host_port)
+            .value_parser(validator::validate_host_port)
         )
         .arg(Arg::with_name("protocol")
             .help("Protocol Filter. Can be specified as comma separated")
-            .short("p")
+            .short('p')
             .long("protocol")
             .takes_value(true)
             .value_name("protocols")
@@ -178,7 +178,7 @@ fn get_app_settings<'a, 'b>() -> App<'a, 'b> {
         )
         .arg(Arg::with_name("duration")
             .help("Set time limit (duration)")
-            .short("d")
+            .short('d')
             .long("duration")
             .takes_value(true)
             .value_name("duration")

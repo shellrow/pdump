@@ -3,7 +3,7 @@ use pnet::datalink;
 pub fn get_interface_index_by_name(if_name: String) -> Option<u32> {
     for iface in datalink::interfaces() {
         if iface.name == if_name {
-            return Some(iface.index)
+            return Some(iface.index);
         }
     }
     return None;
@@ -13,12 +13,12 @@ pub fn list_interfaces(default_interface_index: u32) {
     for interface in datalink::interfaces() {
         if interface.index == default_interface_index {
             println!("[{}] {} (Default)", interface.index, interface.name);
-        }else{
+        } else {
             println!("[{}] {}", interface.index, interface.name);
         }
         if interface.is_up() {
             println!("\tActive");
-        }else{
+        } else {
             println!("\tInactive");
         }
         if interface.is_broadcast() {
@@ -35,7 +35,7 @@ pub fn list_interfaces(default_interface_index: u32) {
         }
         match interface.mac {
             Some(mac) => println!("\tMAC: {}", mac),
-            None =>{},
+            None => {}
         }
         for ip in interface.ips.clone() {
             if ip.is_ipv4() {

@@ -1,51 +1,43 @@
-use pnet::datalink;
-
 pub fn get_interface_index_by_name(if_name: String) -> Option<u32> {
-    for iface in datalink::interfaces() {
-        if iface.name == if_name {
-            return Some(iface.index);
+    let interfaces = default_net::get_interfaces();
+    for interface in interfaces {
+        if interface.name == if_name {
+            return Some(interface.index);
         }
     }
     return None;
 }
 
 pub fn list_interfaces(default_interface_index: u32) {
-    for interface in datalink::interfaces() {
+    let interfaces = default_net::get_interfaces();
+    for interface in interfaces {
         if interface.index == default_interface_index {
             println!("[{}] {} (Default)", interface.index, interface.name);
         } else {
             println!("[{}] {}", interface.index, interface.name);
         }
-        if interface.is_up() {
-            println!("\tActive");
+        println!(
+            "\tFriendly Name: {}",
+            interface.friendly_name.unwrap_or("".to_string())
+        );
+        println!(
+            "\tDescription: {}",
+            interface.description.unwrap_or("".to_string())
+        );
+        println!("\tType: {}", interface.if_type.name());
+        if let Some(mac_addr) = interface.mac_addr {
+            println!("\tMAC: {}", mac_addr);
         } else {
-            println!("\tInactive");
+            println!("\tMAC: (Failed to get mac address)");
         }
-        if interface.is_broadcast() {
-            println!("\tBroadcast");
-        }
-        if interface.is_multicast() {
-            println!("\tMulticast");
-        }
-        if interface.is_loopback() {
-            println!("\tLoopback");
-        }
-        if interface.is_point_to_point() {
-            println!("\tPoint-to-Point");
-        }
-        match interface.mac {
-            Some(mac) => println!("\tMAC: {}", mac),
-            None => {}
-        }
-        for ip in interface.ips.clone() {
-            if ip.is_ipv4() {
-                println!("\tIPv4: {}", ip);
-            }
-        }
-        for ip in interface.ips {
-            if ip.is_ipv6() {
-                println!("\tIPv6: {}", ip);
-            }
+        println!("\tIPv4: {:?}", interface.ipv4);
+        println!("\tIPv6: {:?}", interface.ipv6);
+        if let Some(gateway) = interface.gateway {
+            println!("Gateway");
+            println!("\tMAC: {}", gateway.mac_addr);
+            println!("\tIP: {}", gateway.ip_addr);
+        } else {
+            println!("Gateway: (Not found)");
         }
         println!();
     }

@@ -14,7 +14,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use clap::{App, AppSettings, Arg, Command};
 use default_net;
 
-const CRATE_UPDATE_DATE: &str = "2023-05-31";
+const CRATE_UPDATE_DATE: &str = "2023-06-03";
 const CRATE_AUTHOR_GITHUB: &str = "shellrow <https://github.com/shellrow>";
 //const CRATE_REPOSITORY: &str = "https://github.com/shellrow/nscan/pdump";
 

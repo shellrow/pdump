@@ -1,6 +1,6 @@
 //use std::collections::HashMap;
 
-pub const PDUMP_PROTOCOLS: &str = include_str!("../../data/pdump-protocols.txt");
+pub const PDUMP_PROTOCOLS: &str = include_str!("../data/pdump-protocols.txt");
 
 pub fn get_protocol_list() -> Vec<String> {
     let rs: Vec<&str> = PDUMP_PROTOCOLS.trim().split("\n").collect();

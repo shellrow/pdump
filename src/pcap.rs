@@ -1,9 +1,9 @@
 use super::option::PacketCaptureOptions;
 use super::packet;
-use std::time::Instant;
-use std::net::{IpAddr, Ipv4Addr};
-use pnet::packet::Packet;
 use chrono::Local;
+use pnet::packet::Packet;
+use std::net::{IpAddr, Ipv4Addr};
+use std::time::Instant;
 
 struct CaptureInfo {
     capture_no: usize,
@@ -12,7 +12,13 @@ struct CaptureInfo {
 
 pub fn start_capture(capture_options: PacketCaptureOptions) {
     let interfaces = pnet::datalink::interfaces();
-    let interface = interfaces.into_iter().filter(|interface: &pnet::datalink::NetworkInterface| interface.index == capture_options.interface_index).next().expect("Failed to get Interface");
+    let interface = interfaces
+        .into_iter()
+        .filter(|interface: &pnet::datalink::NetworkInterface| {
+            interface.index == capture_options.interface_index
+        })
+        .next()
+        .expect("Failed to get Interface");
     let config = pnet::datalink::Config {
         write_buffer_size: 4096,
         read_buffer_size: 4096,
@@ -31,7 +37,10 @@ pub fn start_capture(capture_options: PacketCaptureOptions) {
     receive_packets(&mut rx, capture_options);
 }
 
-fn receive_packets(rx: &mut Box<dyn pnet::datalink::DataLinkReceiver>, capture_options: PacketCaptureOptions) {
+fn receive_packets(
+    rx: &mut Box<dyn pnet::datalink::DataLinkReceiver>,
+    capture_options: PacketCaptureOptions,
+) {
     let start_time = Instant::now();
     let mut cnt = 1;
     loop {
@@ -41,41 +50,41 @@ fn receive_packets(rx: &mut Box<dyn pnet::datalink::DataLinkReceiver>, capture_o
                     capture_no: cnt,
                     datatime: Local::now().format("%Y%m%d%H%M%S%.3f").to_string(),
                 };
-                if let Some(frame) = pnet::packet::ethernet::EthernetPacket::new(frame){
+                if let Some(frame) = pnet::packet::ethernet::EthernetPacket::new(frame) {
                     match frame.get_ethertype() {
                         pnet::packet::ethernet::EtherTypes::Ipv4 => {
                             if filter_protocol("IPV4", &capture_options) {
                                 ipv4_handler(&frame, &capture_options, capture_info);
                             }
-                        },
+                        }
                         pnet::packet::ethernet::EtherTypes::Ipv6 => {
                             if filter_protocol("IPV6", &capture_options) {
                                 ipv6_handler(&frame, &capture_options, capture_info);
                             }
-                        },
+                        }
                         pnet::packet::ethernet::EtherTypes::Vlan => {
                             if capture_options.default {
                                 vlan_handler(&frame, &capture_options, capture_info);
                             }
-                        },
+                        }
                         pnet::packet::ethernet::EtherTypes::Arp => {
                             if filter_protocol("ARP", &capture_options) {
                                 arp_handler(&frame, &capture_options, capture_info);
                             }
-                        },
+                        }
                         pnet::packet::ethernet::EtherTypes::Rarp => {
                             if filter_protocol("RARP", &capture_options) {
                                 rarp_handler(&frame, &capture_options, capture_info);
                             }
-                        },
+                        }
                         _ => {
                             if capture_options.default {
                                 eth_handler(&frame, &capture_options, capture_info);
                             }
-                        },
+                        }
                     }
                 }
-            },
+            }
             Err(e) => {
                 println!("Failed to read: {}", e);
             }
@@ -87,184 +96,264 @@ fn receive_packets(rx: &mut Box<dyn pnet::datalink::DataLinkReceiver>, capture_o
     }
 }
 
-fn ipv4_handler(ethernet: &pnet::packet::ethernet::EthernetPacket, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(packet) = pnet::packet::ipv4::Ipv4Packet::new(ethernet.payload()){
-        if filter_host(IpAddr::V4(packet.get_source()), IpAddr::V4(packet.get_destination()), capture_options) {
+fn ipv4_handler(
+    ethernet: &pnet::packet::ethernet::EthernetPacket,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(packet) = pnet::packet::ipv4::Ipv4Packet::new(ethernet.payload()) {
+        if filter_host(
+            IpAddr::V4(packet.get_source()),
+            IpAddr::V4(packet.get_destination()),
+            capture_options,
+        ) {
             match packet.get_next_level_protocol() {
                 pnet::packet::ip::IpNextHeaderProtocols::Tcp => {
                     if filter_protocol("TCP", &capture_options) {
                         tcp_handler(&packet, &capture_options, capture_info);
                     }
-                },
+                }
                 pnet::packet::ip::IpNextHeaderProtocols::Udp => {
                     if filter_protocol("UDP", &capture_options) {
                         udp_handler(&packet, &capture_options, capture_info);
                     }
-                },
+                }
                 pnet::packet::ip::IpNextHeaderProtocols::Icmp => {
                     if filter_protocol("ICMP", &capture_options) {
                         icmp_handler(&packet, &capture_options, capture_info);
                     }
-                },
+                }
                 _ => {}
             }
         }
     }
 }
 
-fn ipv6_handler(ethernet: &pnet::packet::ethernet::EthernetPacket, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(packet) = pnet::packet::ipv6::Ipv6Packet::new(ethernet.payload()){
-        if filter_host(IpAddr::V6(packet.get_source()), IpAddr::V6(packet.get_destination()), capture_options) {
+fn ipv6_handler(
+    ethernet: &pnet::packet::ethernet::EthernetPacket,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(packet) = pnet::packet::ipv6::Ipv6Packet::new(ethernet.payload()) {
+        if filter_host(
+            IpAddr::V6(packet.get_source()),
+            IpAddr::V6(packet.get_destination()),
+            capture_options,
+        ) {
             match packet.get_next_header() {
                 pnet::packet::ip::IpNextHeaderProtocols::Tcp => {
                     if filter_protocol("TCP", &capture_options) {
                         tcp_handler_v6(&packet, &capture_options, capture_info);
                     }
-                },
+                }
                 pnet::packet::ip::IpNextHeaderProtocols::Udp => {
                     if filter_protocol("UDP", &capture_options) {
                         udp_handler_v6(&packet, &capture_options, capture_info);
                     }
-                },
+                }
                 pnet::packet::ip::IpNextHeaderProtocols::Icmpv6 => {
                     if filter_protocol("ICMPV6", &capture_options) {
                         icmpv6_handler(&packet, &capture_options, capture_info);
                     }
-                },
+                }
                 _ => {}
             }
         }
     }
 }
 
-fn eth_handler(ethernet: &pnet::packet::ethernet::EthernetPacket, _capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
+fn eth_handler(
+    ethernet: &pnet::packet::ethernet::EthernetPacket,
+    _capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
     print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-    println!("[{}, {} -> {}, Length {}]"
-    , packet::get_ethertype_string(ethernet.get_ethertype())
-    , ethernet.get_source()
-    , ethernet.get_destination()
-    , ethernet.payload().len());
+    println!(
+        "[{}, {} -> {}, Length {}]",
+        packet::get_ethertype_string(ethernet.get_ethertype()),
+        ethernet.get_source(),
+        ethernet.get_destination(),
+        ethernet.payload().len()
+    );
 }
 
-fn vlan_handler(ethernet: &pnet::packet::ethernet::EthernetPacket, _capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(vlan) = pnet::packet::vlan::VlanPacket::new(ethernet.payload()){
+fn vlan_handler(
+    ethernet: &pnet::packet::ethernet::EthernetPacket,
+    _capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(vlan) = pnet::packet::vlan::VlanPacket::new(ethernet.payload()) {
         print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-        println!("[VLAN, {} -> {}, ID {}, Length {}]"
-        , ethernet.get_source()
-        , ethernet.get_destination()
-        , vlan.get_vlan_identifier()
-        , vlan.payload().len());
+        println!(
+            "[VLAN, {} -> {}, ID {}, Length {}]",
+            ethernet.get_source(),
+            ethernet.get_destination(),
+            vlan.get_vlan_identifier(),
+            vlan.payload().len()
+        );
     }
 }
 
-fn arp_handler(ethernet: &pnet::packet::ethernet::EthernetPacket, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(arp) = pnet::packet::arp::ArpPacket::new(ethernet.payload()){
-        if filter_host(IpAddr::V4(arp.get_sender_proto_addr()), IpAddr::V4(arp.get_target_proto_addr()), capture_options) {
+fn arp_handler(
+    ethernet: &pnet::packet::ethernet::EthernetPacket,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(arp) = pnet::packet::arp::ArpPacket::new(ethernet.payload()) {
+        if filter_host(
+            IpAddr::V4(arp.get_sender_proto_addr()),
+            IpAddr::V4(arp.get_target_proto_addr()),
+            capture_options,
+        ) {
             print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-            println!("[ARP, {}({}) -> {}({}), Length {}]"
-            , arp.get_sender_proto_addr().to_string()
-            , arp.get_sender_hw_addr().to_string()
-            , arp.get_target_proto_addr().to_string()
-            , arp.get_target_hw_addr().to_string()
-            , arp.payload().len());
+            println!(
+                "[ARP, {}({}) -> {}({}), Length {}]",
+                arp.get_sender_proto_addr().to_string(),
+                arp.get_sender_hw_addr().to_string(),
+                arp.get_target_proto_addr().to_string(),
+                arp.get_target_hw_addr().to_string(),
+                arp.payload().len()
+            );
         }
     }
 }
 
-fn rarp_handler(ethernet: &pnet::packet::ethernet::EthernetPacket, _capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(arp) = pnet::packet::arp::ArpPacket::new(ethernet.payload()){
+fn rarp_handler(
+    ethernet: &pnet::packet::ethernet::EthernetPacket,
+    _capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(arp) = pnet::packet::arp::ArpPacket::new(ethernet.payload()) {
         print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-        println!("[RARP, {}({}) -> {}({}), Length {}]"
-        , arp.get_sender_proto_addr().to_string()
-        , arp.get_sender_hw_addr().to_string()
-        , arp.get_target_proto_addr().to_string()
-        , arp.get_target_hw_addr().to_string()
-        , arp.payload().len());
+        println!(
+            "[RARP, {}({}) -> {}({}), Length {}]",
+            arp.get_sender_proto_addr().to_string(),
+            arp.get_sender_hw_addr().to_string(),
+            arp.get_target_proto_addr().to_string(),
+            arp.get_target_hw_addr().to_string(),
+            arp.payload().len()
+        );
     }
 }
 
-fn icmp_handler(packet: &pnet::packet::ipv4::Ipv4Packet, _capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(icmp) = pnet::packet::icmp::IcmpPacket::new(packet.payload()){
+fn icmp_handler(
+    packet: &pnet::packet::ipv4::Ipv4Packet,
+    _capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(icmp) = pnet::packet::icmp::IcmpPacket::new(packet.payload()) {
         print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-        println!("[IPv4, {} -> {}, ICMP {} {:?}, Length {}]"
-        , packet.get_source()
-        , packet.get_destination()
-        , packet::get_icmp_type_string(icmp.get_icmp_type())
-        , icmp.get_icmp_code()
-        , icmp.payload().len());
+        println!(
+            "[IPv4, {} -> {}, ICMP {} {:?}, Length {}]",
+            packet.get_source(),
+            packet.get_destination(),
+            packet::get_icmp_type_string(icmp.get_icmp_type()),
+            icmp.get_icmp_code(),
+            icmp.payload().len()
+        );
     }
 }
 
-fn icmpv6_handler(packet: &pnet::packet::ipv6::Ipv6Packet, _capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
-    if let Some(icmp) = pnet::packet::icmpv6::Icmpv6Packet::new(packet.payload()){
+fn icmpv6_handler(
+    packet: &pnet::packet::ipv6::Ipv6Packet,
+    _capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
+    if let Some(icmp) = pnet::packet::icmpv6::Icmpv6Packet::new(packet.payload()) {
         print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-        println!("[IPv6, {} -> {}, ICMPv6 {} {:?}, Length {}]"
-        , packet.get_source()
-        , packet.get_destination()
-        , packet::get_icmpv6_type_string(icmp.get_icmpv6_type())
-        , icmp.get_icmpv6_code()
-        , icmp.payload().len());
+        println!(
+            "[IPv6, {} -> {}, ICMPv6 {} {:?}, Length {}]",
+            packet.get_source(),
+            packet.get_destination(),
+            packet::get_icmpv6_type_string(icmp.get_icmpv6_type()),
+            icmp.get_icmpv6_code(),
+            icmp.payload().len()
+        );
     }
 }
 
-fn tcp_handler(packet: &pnet::packet::ipv4::Ipv4Packet, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
+fn tcp_handler(
+    packet: &pnet::packet::ipv4::Ipv4Packet,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
     let tcp = pnet::packet::tcp::TcpPacket::new(packet.payload());
     if let Some(tcp) = tcp {
         if filter_port(tcp.get_source(), tcp.get_destination(), capture_options) {
             print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-            println!("[IPv4, {}:{} -> {}:{}, TCP {}, Length {}]"
-            , packet.get_source()
-            , tcp.get_source()
-            , packet.get_destination()
-            , tcp.get_destination()
-            , packet::get_tcp_flag_string(tcp.get_flags())
-            , tcp.payload().len());
+            println!(
+                "[IPv4, {}:{} -> {}:{}, TCP {}, Length {}]",
+                packet.get_source(),
+                tcp.get_source(),
+                packet.get_destination(),
+                tcp.get_destination(),
+                packet::get_tcp_flag_string(tcp.get_flags()),
+                tcp.payload().len()
+            );
         }
     }
 }
 
-fn tcp_handler_v6(packet: &pnet::packet::ipv6::Ipv6Packet, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
+fn tcp_handler_v6(
+    packet: &pnet::packet::ipv6::Ipv6Packet,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
     let tcp = pnet::packet::tcp::TcpPacket::new(packet.payload());
     if let Some(tcp) = tcp {
         if filter_port(tcp.get_source(), tcp.get_destination(), capture_options) {
             print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-            println!("[IPv6, {}:{} -> {}:{}, TCP {}, Length {}]"
-            , packet.get_source()
-            , tcp.get_source()
-            , packet.get_destination()
-            , tcp.get_destination()
-            , packet::get_tcp_flag_string(tcp.get_flags())
-            , tcp.payload().len());
+            println!(
+                "[IPv6, {}:{} -> {}:{}, TCP {}, Length {}]",
+                packet.get_source(),
+                tcp.get_source(),
+                packet.get_destination(),
+                tcp.get_destination(),
+                packet::get_tcp_flag_string(tcp.get_flags()),
+                tcp.payload().len()
+            );
         }
     }
 }
 
-fn udp_handler(packet: &pnet::packet::ipv4::Ipv4Packet, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
+fn udp_handler(
+    packet: &pnet::packet::ipv4::Ipv4Packet,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
     let udp = pnet::packet::udp::UdpPacket::new(packet.payload());
     if let Some(udp) = udp {
         if filter_port(udp.get_source(), udp.get_destination(), capture_options) {
             print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-            println!("[IPv4, {}:{} -> {}:{}, UDP, Length {}]"
-            , packet.get_source()
-            , udp.get_source()
-            , packet.get_destination()
-            , udp.get_destination()
-            , udp.payload().len());
+            println!(
+                "[IPv4, {}:{} -> {}:{}, UDP, Length {}]",
+                packet.get_source(),
+                udp.get_source(),
+                packet.get_destination(),
+                udp.get_destination(),
+                udp.payload().len()
+            );
         }
     }
 }
 
-fn udp_handler_v6(packet: &pnet::packet::ipv6::Ipv6Packet, capture_options: &PacketCaptureOptions, capture_info: CaptureInfo) {
+fn udp_handler_v6(
+    packet: &pnet::packet::ipv6::Ipv6Packet,
+    capture_options: &PacketCaptureOptions,
+    capture_info: CaptureInfo,
+) {
     let udp = pnet::packet::udp::UdpPacket::new(packet.payload());
     if let Some(udp) = udp {
         if filter_port(udp.get_source(), udp.get_destination(), capture_options) {
             print!("[{}] [{}] ", capture_info.capture_no, capture_info.datatime);
-            println!("[IPv6, {}:{} -> {}:{}, UDP, Length {}]"
-            , packet.get_source()
-            , udp.get_source()
-            , packet.get_destination()
-            , udp.get_destination()
-            , udp.payload().len());
+            println!(
+                "[IPv6, {}:{} -> {}:{}, UDP, Length {}]",
+                packet.get_source(),
+                udp.get_source(),
+                packet.get_destination(),
+                udp.get_destination(),
+                udp.payload().len()
+            );
         }
     }
 }
@@ -276,7 +365,7 @@ fn filter_host(src_ip: IpAddr, dst_ip: IpAddr, capture_options: &PacketCaptureOp
     }
     if src_ip == capture_options.src_ip || dst_ip == capture_options.dst_ip {
         return true;
-    }else{
+    } else {
         return false;
     }
 }
@@ -287,15 +376,17 @@ fn filter_port(src_port: u16, dst_port: u16, capture_options: &PacketCaptureOpti
     }
     if src_port == capture_options.src_port || dst_port == capture_options.dst_port {
         return true;
-    }else{
+    } else {
         return false;
     }
 }
 
 fn filter_protocol(protocol: &str, capture_options: &PacketCaptureOptions) -> bool {
-    if capture_options.protocols.len() == 0 || capture_options.protocols.contains(&protocol.to_string()) {
+    if capture_options.protocols.len() == 0
+        || capture_options.protocols.contains(&protocol.to_string())
+    {
         return true;
-    }else{
+    } else {
         return false;
     }
 }

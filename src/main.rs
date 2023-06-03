@@ -1,12 +1,15 @@
 #[macro_use]
 extern crate clap;
 
-mod util;
-use util::validator;
-use util::option::PacketCaptureOptions;
-use util::pcap;
-use util::interface;
-use util::sys;
+pub mod db;
+pub mod interface;
+pub mod option;
+pub mod pcap;
+pub mod validator;
+pub mod packet;
+pub mod sys;
+
+use crate::option::PacketCaptureOptions;
 
 use std::env;
 use std::time::Duration;
